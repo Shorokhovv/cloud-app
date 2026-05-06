@@ -11,8 +11,16 @@ app = Flask(__name__)
 # Конфигурация
 BASE_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = BASE_DIR / 'storage'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'zip'}
 
+ALLOWED_EXTENSIONS = {
+    'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif',
+    'doc', 'docx', 'xls', 'xlsx', 'zip',
+    'mp4', 'mp3', 'webm', 'avi',           # видео/аудио
+    'json', 'xml', 'csv',                  # данные
+    'ppt', 'pptx',                         # презентации
+    'psd', 'ai', 'eps',                    # графика
+    'rar', '7z', 'tar', 'gz'               # архивы
+}
 # Создаем необходимые директории
 STORAGE_DIR.mkdir(exist_ok=True)
 
