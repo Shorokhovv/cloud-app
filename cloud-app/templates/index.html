@@ -8,9 +8,25 @@
         h1 { color: #333; }
         .upload-form { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px; }
         .file-list { margin-top: 20px; }
-        .file-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        .btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .file-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; }
+        .file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .file-details { flex: 1; min-width: 0; }
+        .file-details div:first-child { font-weight: 600; color: #333; }
+        .btn { background: #007bff; color: white; border: none; padding: 10px 18px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
         .btn:hover { background: #0056b3; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        .folder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .folder-select { padding: 10px 12px; border-radius: 5px; border: 1px solid #ccc; background: white; color: #333; min-width: 220px; }
+        .folder-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .file-preview { max-width: 320px; max-height: 180px; display: block; margin-top: 10px; border-radius: 8px; box-shadow: 0 8px 18px rgba(0,0,0,0.1); cursor: zoom-in; object-fit: cover; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { max-width: 80vw; max-height: 80vh; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.2); position: relative; }
+        .modal-content img { width: auto; max-width: 100%; max-height: 80vh; display: block; }
+        .modal-close { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 18px; color: #333; }
     </style>
 </head>
 <body>
@@ -18,11 +34,22 @@
         <h1>☁️ Cloud File Storage</h1>
         
         <div class="upload-form">
+            <div class="folder-row">
+                <label for="folderSelect">Выберите директорию:</label>
+                <select id="folderSelect" class="folder-select">
+                    <option value="" disabled selected>Выберите папку</option>
+                </select>
+                <div class="folder-actions">
+                    <button type="button" class="btn btn-secondary" onclick="createFolder()">Новая папка</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteFolder()">Удалить папку</button>
+                </div>
+            </div>
             <h2>Загрузить файл</h2>
-            <form action="/upload" method="post" enctype="multipart/form-data">
+            <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
                 <input type="file" name="file" required>
                 <button type="submit" class="btn">Загрузить</button>
             </form>
+            <div id="uploadStatus" style="margin-top: 10px;"></div>
         </div>
 
         <div class="file-list">
@@ -31,10 +58,67 @@
         </div>
     </div>
 
+    <div id="imageModal" class="modal-overlay" onclick="closePreview(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closePreview(event)">&times;</button>
+            <img id="modalImage" src="" alt="Preview">
+        </div>
+    </div>
+
     <script>
+        function buildPath(...parts) {
+            return parts.map(part => encodeURIComponent(part).replace(/%2F/g, '/')).join('/');
+        }
+
+        async function loadFolders() {
+            try {
+                const response = await fetch('/folders');
+                const folders = await response.json();
+                const select = document.getElementById('folderSelect');
+                const current = select.value;
+                select.innerHTML = '<option value="" disabled selected>Выберите папку</option>';
+                folders.forEach(folder => {
+                    select.innerHTML += `<option value="${folder}">${folder}</option>`;
+                });
+                if (current) {
+                    select.value = current;
+                }
+            } catch (error) {
+                console.error('Не удалось загрузить список папок', error);
+            }
+        }
+
+        async function createFolder() {
+            const name = prompt('Введите имя новой папки:');
+            if (!name) {
+                return;
+            }
+            try {
+                const formData = new FormData();
+                formData.append('folder', name);
+                const response = await fetch('/create-folder', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    await loadFolders();
+                    document.getElementById('folderSelect').value = result.folder;
+                    document.getElementById('uploadStatus').innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    loadFiles();
+                } else {
+                    document.getElementById('uploadStatus').innerHTML = `<p style="color: red;">Ошибка: ${result.error}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('uploadStatus').innerHTML = '<p style="color: red;">Ошибка создания папки</p>';
+            }
+        }
+
         async function loadFiles() {
             try {
-                const response = await fetch('/list');
+                const folderSelect = document.getElementById('folderSelect');
+                const folderParam = folderSelect.value ? `?folder=${encodeURIComponent(folderSelect.value)}` : '';
+                const response = await fetch(`/list${folderParam}`);
                 const files = await response.json();
                 const container = document.getElementById('files');
                 
@@ -45,11 +129,23 @@
                 
                 let html = '';
                 files.forEach(file => {
+                    const folderPath = file.folder ? buildPath(file.folder) : null;
+                    const fileUrl = folderPath ? `/files/${buildPath(folderPath, file.filename)}` : `/files/${encodeURIComponent(file.filename)}`;
+                    const previewUrl = folderPath ? `/preview/${buildPath(folderPath, file.filename)}` : `/preview/${encodeURIComponent(file.filename)}`;
+                    const deleteUrl = folderPath ? `/delete/${buildPath(folderPath, file.filename)}` : `/delete/${encodeURIComponent(file.filename)}`;
                     html += `
                         <div class="file-item">
-                            <span>${file.original_name || file.filename}</span>
-                            <span>${file.size_formatted || file.size + ' bytes'}</span>
-                            <a href="/files/${file.filename}" download>Скачать</a>
+                            <div class="file-row">
+                                <div class="file-details">
+                                    <div>${file.original_name || file.filename}</div>
+                                    <div style="font-size: 0.9em; color: #555;">${file.size_formatted || file.size + ' bytes'}${file.folder ? ` · ${file.folder}` : ''}</div>
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <a class="btn" href="${fileUrl}" download>Скачать</a>
+                                    <button class="btn btn-danger" onclick="deleteFile('${deleteUrl}')">Удалить</button>
+                                </div>
+                            </div>
+                            ${file.is_image ? `<img class="file-preview" src="${previewUrl}" alt="${file.original_name || file.filename}" onclick="openPreview('${previewUrl}')">` : ''}
                         </div>
                     `;
                 });
@@ -59,7 +155,109 @@
             }
         }
         
+        function openPreview(url) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = url;
+            modal.classList.add('active');
+        }
+
+        function closePreview(event) {
+            if (event.target.id === 'imageModal' || event.target.classList.contains('modal-close')) {
+                const modal = document.getElementById('imageModal');
+                const modalImage = document.getElementById('modalImage');
+                modal.classList.remove('active');
+                modalImage.src = '';
+            }
+        }
+
+        async function deleteFile(path) {
+            if (!confirm('Удалить файл? Это действие необратимо.')) {
+                return;
+            }
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = 'Удаление...';
+            try {
+                const response = await fetch(path, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    statusDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    loadFiles();
+                } else {
+                    statusDiv.innerHTML = `<p style="color: red;">Ошибка: ${result.error}</p>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<p style="color: red;">Ошибка удаления</p>';
+            }
+        }
+
+        async function deleteFolder() {
+            const folderSelect = document.getElementById('folderSelect');
+            const folder = folderSelect.value;
+            if (!folder) {
+                alert('Сначала выберите папку для удаления.');
+                return;
+            }
+            if (!confirm(`Удалить папку "${folder}" и все её файлы? Это действие необратимо.`)) {
+                return;
+            }
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = 'Удаление папки...';
+            try {
+                const formData = new FormData();
+                formData.append('folder', folder);
+                const response = await fetch('/delete-folder', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    statusDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    await loadFolders();
+                    loadFiles();
+                } else {
+                    statusDiv.innerHTML = `<p style="color: red;">Ошибка: ${result.error}</p>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<p style="color: red;">Ошибка удаления папки</p>';
+            }
+        }
+
+        document.getElementById('folderSelect').addEventListener('change', loadFiles);
+        loadFolders();
         loadFiles();
+        
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = 'Загрузка...';
+            
+            try {
+                const folderSelect = document.getElementById('folderSelect');
+                const selectedFolder = folderSelect.value;
+                if (!selectedFolder) {
+                    statusDiv.innerHTML = '<p style="color: red;">Выберите папку перед загрузкой.</p>';
+                    return;
+                }
+                formData.append('folder', selectedFolder);
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    statusDiv.innerHTML = '<p style="color: green;">Файл загружен успешно!</p>';
+                    loadFiles(); // Обновляем список файлов
+                } else {
+                    statusDiv.innerHTML = '<p style="color: red;">Ошибка: ' + result.error + '</p>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<p style="color: red;">Ошибка загрузки</p>';
+            }
+        });
     </script>
 </body>
 </html>
