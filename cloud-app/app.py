@@ -103,8 +103,6 @@ def upload_file():
         
         # Выбираем директорию для сохранения
         selected_folder = request.form.get('folder')
-        if not selected_folder:
-            return jsonify({'error': 'Folder is required'}), 400
         target_dir = get_folder_path(selected_folder)
         target_dir.mkdir(parents=True, exist_ok=True)
 

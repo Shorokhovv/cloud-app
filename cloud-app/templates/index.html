@@ -4,20 +4,22 @@
     <title>Cloud Storage</title>
     <style>
         body { font-family: Arial; margin: 40px; background: #f0f2f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 100%; max-height: 100%; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h1 { color: #333; }
-        .upload-form { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px; }
+        .upload-form { margin: 20px 0; padding: 20px; background: white; border-radius: 5px; }        
         .file-list { margin-top: 20px; }
         .file-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; }
         .file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .file-details { flex: 1; min-width: 0; }
         .file-details div:first-child { font-weight: 600; color: #333; }
-        .btn { background: #007bff; color: white; border: none; padding: 10px 18px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
-        .btn:hover { background: #0056b3; }
-        .btn-secondary { background: #6c757d; }
-        .btn-secondary:hover { background: #5a6268; }
-        .btn-danger { background: #dc3545; }
-        .btn-danger:hover { background: #c82333; }
+        .btn {background: #007bff;color: white;border: none;padding: 10px 18px;border-radius: 5px;cursor: pointer;white-space: nowrap;text-decoration: none;}
+        .btn:hover {background: #0056b3;text-decoration: none;}
+        .btn-secondary {background: #6c757d;}
+        .btn-secondary:hover {background: #5a6268;}
+        .btn-danger {background: #dc3545;}
+        .btn-danger:hover {background: #c82333;}
+        .btn:focus,
+        .btn:active {text-decoration: none;}
         .folder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
         .folder-select { padding: 10px 12px; border-radius: 5px; border: 1px solid #ccc; background: white; color: #333; min-width: 220px; }
         .folder-actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -30,9 +32,13 @@
     </style>
 </head>
 <body>
+    <header class="site-header">
+        <div class="header-container">
+            <h1>☁️ Cloud File Storage</h1>
+        </div>
+    </header>
+
     <div class="container">
-        <h1>☁️ Cloud File Storage</h1>
-        
         <div class="upload-form">
             <div class="folder-row">
                 <label for="folderSelect">Выберите директорию:</label>
@@ -40,8 +46,8 @@
                     <option value="" disabled selected>Выберите папку</option>
                 </select>
                 <div class="folder-actions">
-                    <button type="button" class="btn btn-secondary" onclick="createFolder()">Новая папка</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteFolder()">Удалить папку</button>
+                    <button type="button" class="btn btn-secondary" onclick="createFolder()"> ➕ Новая папка</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteFolder()">🗑️ Удалить папку</button>
                 </div>
             </div>
             <h2>Загрузить файл</h2>
@@ -141,8 +147,8 @@
                                     <div style="font-size: 0.9em; color: #555;">${file.size_formatted || file.size + ' bytes'}${file.folder ? ` · ${file.folder}` : ''}</div>
                                 </div>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <a class="btn" href="${fileUrl}" download>Скачать</a>
-                                    <button class="btn btn-danger" onclick="deleteFile('${deleteUrl}')">Удалить</button>
+                                    <a class="btn" href="${fileUrl}" download> Скачать</a>
+                                    <button class="btn btn-danger" onclick="deleteFile('${deleteUrl}')">🗑️ Удалить</button>
                                 </div>
                             </div>
                             ${file.is_image ? `<img class="file-preview" src="${previewUrl}" alt="${file.original_name || file.filename}" onclick="openPreview('${previewUrl}')">` : ''}
