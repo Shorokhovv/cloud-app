@@ -310,9 +310,15 @@ def generate_access():
     access = load_access()
     access[folder] = {'token': token, 'password': password}
     save_access(access)
-    gallery_url = url_for('client_gallery', token=token, _external=True)
-    return jsonify({'message': 'Access granted', 'token': token, 'url': gallery_url})
 
+    if 'X-Forwarded-Host' in request.headers:
+        host = request.headers['X-Forwarded-Host']
+    else:
+        host = request.host
+    scheme = request.headers.get('X-Forwarded-Proto', 'http')
+    gallery_url = f"{scheme}://{host}/gallery/{token}"
+
+    return jsonify({'message': 'Access granted', 'token': token, 'url': gallery_url})
 @app.route('/revoke-access', methods=['POST'])
 def revoke_access():
     folder = request.form.get('folder')
