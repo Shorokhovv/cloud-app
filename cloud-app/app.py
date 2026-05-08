@@ -2,9 +2,12 @@ import os
 import json
 import datetime
 import shutil
+import secrets
+import io
 from flask import Flask, request, jsonify, send_file, render_template, url_for
 from werkzeug.utils import secure_filename
 from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__)
 
@@ -15,21 +18,19 @@ STORAGE_DIR = BASE_DIR / 'storage'
 ALLOWED_EXTENSIONS = {
     'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif',
     'doc', 'docx', 'xls', 'xlsx', 'zip',
-    'mp4', 'mp3', 'webm', 'avi',           # видео/аудио
-    'json', 'xml', 'csv',                  # данные
-    'ppt', 'pptx',                         # презентации
-    'psd', 'ai', 'eps',                    # графика
-    'rar', '7z', 'tar', 'gz'               # архивы
+    'mp4', 'mp3', 'webm', 'avi',
+    'json', 'xml', 'csv',
+    'ppt', 'pptx',
+    'psd', 'ai', 'eps',
+    'rar', '7z', 'tar', 'gz'
 }
-# Создаем необходимые директории
+
 STORAGE_DIR.mkdir(exist_ok=True)
 
 def get_date_path():
-    """Возвращает путь к подкаталогу по текущей дате"""
     return datetime.datetime.now().strftime('%Y/%m/%d')
 
 def get_folder_path(folder_name=None):
-    """Получает путь к папке в storage."""
     if folder_name:
         folder_name = secure_filename(folder_name)
         return STORAGE_DIR / folder_name
@@ -39,7 +40,6 @@ def get_metadata_file(folder_path):
     return folder_path / 'metadata.json'
 
 def load_folder_metadata(folder_path):
-    """Загружает метаданные из metadata.json выбранной папки"""
     metadata_file = get_metadata_file(folder_path)
     if metadata_file.exists():
         with open(metadata_file, 'r', encoding='utf-8') as f:
@@ -47,13 +47,11 @@ def load_folder_metadata(folder_path):
     return {}
 
 def save_folder_metadata(folder_path, metadata):
-    """Сохраняет метаданные в metadata.json выбранной папке"""
     metadata_file = get_metadata_file(folder_path)
     with open(metadata_file, 'w', encoding='utf-8') as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)
 
 def gather_all_files():
-    """Собирает метаданные из всех папок в storage."""
     files = []
     for path in STORAGE_DIR.rglob('metadata.json'):
         folder_path = path.parent
@@ -72,7 +70,6 @@ def gather_all_files():
     return files
 
 def list_directories():
-    """Возвращает список доступных директорий в storage"""
     directories = []
     for entry in STORAGE_DIR.iterdir():
         if entry.is_dir():
@@ -80,57 +77,71 @@ def list_directories():
     return sorted(directories)
 
 def allowed_file(filename):
-    """Проверяет разрешен ли тип файла"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def is_image(filename):
-    """Проверяет, является ли файл изображением"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+
+def add_watermark(image_path, text="Photographer", opacity=0.3):
+    """Накладывает полупрозрачный текст на изображение. Возвращает BytesIO."""
+    img = Image.open(image_path).convert("RGBA")
+    txt_layer = Image.new("RGBA", img.size, (255,255,255,0))
+    draw = ImageDraw.Draw(txt_layer)
+    try:
+        font = ImageFont.truetype("arial.ttf", size=36)
+    except:
+        font = ImageFont.load_default()
+    bbox = draw.textbbox((0,0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    margin = 20
+    position = (img.width - text_width - margin, img.height - text_height - margin)
+    draw.text(position, text, font=font, fill=(255,255,255, int(255*opacity)))
+    watermarked = Image.alpha_composite(img, txt_layer)
+    if watermarked.mode == 'RGBA':
+        watermarked = watermarked.convert('RGB')
+    img_io = io.BytesIO()
+    watermarked.save(img_io, format='JPEG', quality=85)
+    img_io.seek(0)
+    return img_io
+
+# Управление доступом
+ACCESS_FILE = STORAGE_DIR / 'access.json'
+
+def load_access():
+    if ACCESS_FILE.exists():
+        with open(ACCESS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_access(data):
+    with open(ACCESS_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
 
 @app.route('/')
 def index():
-    """Главная страница с формой загрузки"""
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Загружает файл на сервер"""
-    # Проверяем наличие файла в запросе
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    
     file = request.files['file']
-    
-    # Проверяем выбрал ли пользователь файл
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    
     if file and allowed_file(file.filename):
-        # Безопасное имя файла
         filename = secure_filename(file.filename)
-        
-        # Выбираем директорию для сохранения
         selected_folder = request.form.get('folder')
         target_dir = get_folder_path(selected_folder)
         target_dir.mkdir(parents=True, exist_ok=True)
-
-        # Загружаем метаданные папки
         metadata = load_folder_metadata(target_dir)
-
-        # Формируем полный путь для сохранения
         file_path = target_dir / filename
-
-        # Если файл уже существует или имя занято в метаданных, добавляем timestamp
         while file_path.exists() or filename in metadata:
             name, ext = os.path.splitext(filename)
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{name}_{timestamp}{ext}"
             file_path = target_dir / filename
-
-        # Сохраняем файл
         file.save(file_path)
-
-        # Сохраняем метаданные файла
         file_stat = file_path.stat()
         metadata[filename] = {
             'original_name': file.filename,
@@ -140,25 +151,20 @@ def upload_file():
             'path': str(file_path.relative_to(BASE_DIR)),
             'is_image': is_image(filename)
         }
-
         save_folder_metadata(target_dir, metadata)
-        
         return jsonify({
             'message': 'File uploaded successfully',
             'filename': filename,
             'metadata': metadata[filename]
         }), 201
-    
     return jsonify({'error': 'File type not allowed'}), 400
 
 @app.route('/folders')
 def folders():
-    """Возвращает список доступных директорий"""
     return jsonify(list_directories())
 
 @app.route('/create-folder', methods=['POST'])
 def create_folder():
-    """Создает новую директорию в storage"""
     folder_name = request.form.get('folder')
     if not folder_name:
         return jsonify({'error': 'Folder name is required'}), 400
@@ -172,7 +178,6 @@ def create_folder():
 
 @app.route('/delete-folder', methods=['POST'])
 def delete_folder():
-    """Удаляет директорию и все её содержимое"""
     folder_name = request.form.get('folder')
     if not folder_name:
         return jsonify({'error': 'Folder name is required'}), 400
@@ -183,11 +188,15 @@ def delete_folder():
     if not folder_path.exists() or not folder_path.is_dir():
         return jsonify({'error': 'Folder not found'}), 404
     shutil.rmtree(folder_path)
+    # Также удаляем запись из access.json при удалении папки
+    access = load_access()
+    if safe_name in access:
+        del access[safe_name]
+        save_access(access)
     return jsonify({'message': f'Folder "{safe_name}" deleted successfully'}), 200
 
 @app.route('/list')
 def list_files():
-    """Возвращает список файлов, опционально из одной папки"""
     selected_folder = request.args.get('folder')
     if selected_folder:
         folder_path = STORAGE_DIR / selected_folder
@@ -207,33 +216,11 @@ def list_files():
             })
     else:
         files_list = gather_all_files()
-
     files_list.sort(key=lambda x: x['upload_date'], reverse=True)
     return jsonify(files_list)
 
-@app.route('/preview/<path:filename>')
-def preview_file_fallback(filename):
-    """Просмотр изображения без папки, если файл находится в одном из каталогов"""
-    for path in STORAGE_DIR.rglob('metadata.json'):
-        folder_path = path.parent
-        metadata = load_folder_metadata(folder_path)
-        if filename in metadata:
-            if not is_image(filename):
-                return jsonify({'error': 'Preview not available for this file type'}), 400
-            file_info = metadata[filename]
-            file_path = BASE_DIR / file_info['path']
-            if not file_path.exists():
-                return jsonify({'error': 'File not found on disk'}), 404
-            return send_file(
-                file_path,
-                download_name=file_info.get('original_name', filename),
-                as_attachment=False
-            )
-    return jsonify({'error': 'File not found'}), 404
-
 @app.route('/preview/<path:folder>/<path:filename>')
 def preview_file(folder, filename):
-    """Просмотр изображения без скачивания"""
     folder_path = STORAGE_DIR / folder
     if not folder_path.exists() or not folder_path.is_dir():
         return jsonify({'error': 'Folder not found'}), 404
@@ -246,6 +233,14 @@ def preview_file(folder, filename):
     file_path = BASE_DIR / file_info['path']
     if not file_path.exists():
         return jsonify({'error': 'File not found on disk'}), 404
+    watermark = request.args.get('watermark', '0') == '1'
+    if watermark:
+        return send_file(
+            add_watermark(file_path),
+            mimetype='image/jpeg',
+            download_name=file_info.get('original_name', filename),
+            as_attachment=False
+        )
     return send_file(
         file_path,
         download_name=file_info.get('original_name', filename),
@@ -254,7 +249,6 @@ def preview_file(folder, filename):
 
 @app.route('/files/<path:folder>/<path:filename>')
 def download_file(folder, filename):
-    """Скачивает конкретный файл"""
     folder_path = STORAGE_DIR / folder
     if not folder_path.exists() or not folder_path.is_dir():
         return jsonify({'error': 'Folder not found'}), 404
@@ -265,6 +259,14 @@ def download_file(folder, filename):
     file_path = BASE_DIR / file_info['path']
     if not file_path.exists():
         return jsonify({'error': 'File not found on disk'}), 404
+    watermark = request.args.get('watermark', '0') == '1'
+    if watermark and is_image(filename):
+        return send_file(
+            add_watermark(file_path),
+            mimetype='image/jpeg',
+            download_name=file_info.get('original_name', filename),
+            as_attachment=True
+        )
     return send_file(
         file_path,
         download_name=file_info.get('original_name', filename),
@@ -273,7 +275,6 @@ def download_file(folder, filename):
 
 @app.route('/files/info/<path:folder>/<path:filename>')
 def file_info(folder, filename):
-    """Возвращает информацию о конкретном файле"""
     folder_path = STORAGE_DIR / folder
     if not folder_path.exists() or not folder_path.is_dir():
         return jsonify({'error': 'Folder not found'}), 404
@@ -284,7 +285,6 @@ def file_info(folder, filename):
 
 @app.route('/delete/<path:folder>/<path:filename>', methods=['DELETE'])
 def delete_file(folder, filename):
-    """Удаляет файл из указанной папки"""
     folder_path = STORAGE_DIR / folder
     if not folder_path.exists() or not folder_path.is_dir():
         return jsonify({'error': 'Folder not found'}), 404
@@ -299,8 +299,46 @@ def delete_file(folder, filename):
     save_folder_metadata(folder_path, metadata)
     return jsonify({'message': f'File {filename} deleted successfully'})
 
+# ---------- Маршруты доступа ----------
+@app.route('/generate-access', methods=['POST'])
+def generate_access():
+    folder = request.form.get('folder')
+    password = request.form.get('password', '')
+    if not folder or not (STORAGE_DIR / folder).is_dir():
+        return jsonify({'error': 'Invalid folder'}), 400
+    token = secrets.token_urlsafe(16)
+    access = load_access()
+    access[folder] = {'token': token, 'password': password}
+    save_access(access)
+    gallery_url = url_for('client_gallery', token=token, _external=True)
+    return jsonify({'message': 'Access granted', 'token': token, 'url': gallery_url})
+
+@app.route('/revoke-access', methods=['POST'])
+def revoke_access():
+    folder = request.form.get('folder')
+    if not folder:
+        return jsonify({'error': 'Folder required'}), 400
+    access = load_access()
+    if folder in access:
+        del access[folder]
+        save_access(access)
+    return jsonify({'message': 'Access revoked'})
+
+@app.route('/gallery/<token>')
+def client_gallery(token):
+    access = load_access()
+    folder = None
+    for f, data in access.items():
+        if data['token'] == token:
+            folder = f
+            break
+    if not folder or not (STORAGE_DIR / folder).is_dir():
+        return "Ссылка недействительна", 404
+    # Здесь можно добавить проверку пароля через отдельную форму, если нужен пароль.
+    # Пока просто показываем галерею (пароль не проверяется, но хранится).
+    return render_template('gallery.html', folder=folder, token=token)
+
 def format_size(size):
-    """Форматирует размер файла в человекочитаемый вид"""
     for unit in ['B', 'KB', 'MB', 'GB']:
         if size < 1024.0:
             return f"{size:.1f} {unit}"

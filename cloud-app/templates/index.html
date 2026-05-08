@@ -18,6 +18,8 @@
         .btn-secondary:hover {background: #5a6268;}
         .btn-danger {background: #dc3545;}
         .btn-danger:hover {background: #c82333;}
+        .btn-success {background: #28a745;}
+        .btn-success:hover {background: #218838;}
         .btn:focus,
         .btn:active {text-decoration: none;}
         .folder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -29,11 +31,12 @@
         .modal-content { max-width: 80vw; max-height: 80vh; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.2); position: relative; }
         .modal-content img { width: auto; max-width: 100%; max-height: 80vh; display: block; }
         .modal-close { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 18px; color: #333; }
+        footer { margin-top: 40px; padding: 20px; background: #f8f9fa; text-align: center; color: #666; border-radius: 8px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>☁️ Cloud File Storage</h1>
+    <h1>☁️ Портфолио фотографа</h1>
         <div class="upload-form">
             <div class="folder-row">
                 <label for="folderSelect">Выберите директорию:</label>
@@ -41,8 +44,9 @@
                     <option value="" disabled selected>Выберите папку</option>
                 </select>
                 <div class="folder-actions">
-                    <button type="button" class="btn btn-secondary" onclick="createFolder()"> ➕ Новая папка</button>
+                    <button type="button" class="btn btn-secondary" onclick="createFolder()">➕ Новая папка</button>
                     <button type="button" class="btn btn-danger" onclick="deleteFolder()">🗑️ Удалить папку</button>
+                    <button type="button" class="btn btn-success" onclick="shareFolder()">🔗 Поделиться</button>
                 </div>
             </div>
             <h2>Загрузить файл</h2>
@@ -65,6 +69,11 @@
             <img id="modalImage" src="" alt="Preview">
         </div>
     </div>
+
+    <footer>
+        <p>📷 Иван Фотографов | +7 (999) 123-45-67 | photo@example.com</p>
+        <p>© 2025 Портфолио фотографа</p>
+    </footer>
 
     <script>
         function buildPath(...parts) {
@@ -226,6 +235,34 @@
             }
         }
 
+        async function shareFolder() {
+            const folderSelect = document.getElementById('folderSelect');
+            const folder = folderSelect.value;
+            if (!folder) {
+                alert('Сначала выберите папку для создания ссылки.');
+                return;
+            }
+            const password = prompt('Придумайте пароль для доступа (или оставьте пустым):') || '';
+            try {
+                const formData = new FormData();
+                formData.append('folder', folder);
+                formData.append('password', password);
+                const response = await fetch('/generate-access', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok && data.url) {
+                    // Показываем ссылку, которую можно скопировать
+                    prompt('Ссылка для клиента (скопируйте):', data.url);
+                } else {
+                    alert('Ошибка: ' + (data.error || 'Не удалось создать доступ'));
+                }
+            } catch (error) {
+                alert('Ошибка сети');
+            }
+        }
+
         document.getElementById('folderSelect').addEventListener('change', loadFiles);
         loadFolders();
         loadFiles();
@@ -251,10 +288,10 @@
                 const result = await response.json();
                 if (response.ok) {
                     statusDiv.innerHTML = '<p style="color: green;">Файл загружен успешно!</p>';
-                    loadFiles(); // Обновляем список файлов
+                    loadFiles();
                 } else {
                     statusDiv.innerHTML = '<p style="color: red;">Ошибка: ' + result.error + '</p>';
-                }
+                }   
             } catch (error) {
                 statusDiv.innerHTML = '<p style="color: red;">Ошибка загрузки</p>';
             }
