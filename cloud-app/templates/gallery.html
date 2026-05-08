@@ -78,7 +78,7 @@
             currentIdx = idx;
             const img = images[idx];
             // В плеере показываем с водяным знаком
-document.getElementById('lightboxImg').src =     `/secure-preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?token=${encodeURIComponent(token)}`;
+            document.getElementById('lightboxImg').src =     `/secure-preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?token=${encodeURIComponent(token)}`;
             document.getElementById('lightboxCaption').innerText = img.original_name || img.filename;
             document.getElementById('lightbox').classList.add('active');
         }

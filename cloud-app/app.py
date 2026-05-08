@@ -126,55 +126,38 @@ def index():
 def upload_file():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-
-    files = request.files.getlist('file')  # получаем список файлов
-    if not files or all(f.filename == '' for f in files):
+    file = request.files['file']
+    if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-
-    selected_folder = request.form.get('folder')
-    target_dir = get_folder_path(selected_folder)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    metadata = load_folder_metadata(target_dir)
-
-    uploaded = []
-    for file in files:
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        selected_folder = request.form.get('folder')
+        target_dir = get_folder_path(selected_folder)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        metadata = load_folder_metadata(target_dir)
+        file_path = target_dir / filename
+        while file_path.exists() or filename in metadata:
+            name, ext = os.path.splitext(filename)
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{name}_{timestamp}{ext}"
             file_path = target_dir / filename
-
-            # Уникальное имя, если уже существует
-            while file_path.exists() or filename in metadata:
-                name, ext = os.path.splitext(filename)
-                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                filename = f"{name}_{timestamp}{ext}"
-                file_path = target_dir / filename
-
-            file.save(file_path)
-            file_stat = file_path.stat()
-            metadata[filename] = {
-                'original_name': file.filename,
-                'size': file_stat.st_size,
-                'size_formatted': format_size(file_stat.st_size),
-                'upload_date': datetime.datetime.now().isoformat(),
-                'path': str(file_path.relative_to(BASE_DIR)),
-                'is_image': is_image(filename)
-            }
-
-            uploaded.append({
-                'filename': filename,
-                'original_name': file.filename,
-                'size_formatted': format_size(file_stat.st_size)
-            })
-
-    save_folder_metadata(target_dir, metadata)
-
-    if not uploaded:
-        return jsonify({'error': 'No valid files uploaded'}), 400
-
-    return jsonify({
-        'message': f'Uploaded {len(uploaded)} file(s)',
-        'files': uploaded,
-    }), 201
+        file.save(file_path)
+        file_stat = file_path.stat()
+        metadata[filename] = {
+            'original_name': file.filename,
+            'size': file_stat.st_size,
+            'size_formatted': format_size(file_stat.st_size),
+            'upload_date': datetime.datetime.now().isoformat(),
+            'path': str(file_path.relative_to(BASE_DIR)),
+            'is_image': is_image(filename)
+        }
+        save_folder_metadata(target_dir, metadata)
+        return jsonify({
+            'message': 'File uploaded successfully',
+            'filename': filename,
+            'metadata': metadata[filename]
+        }), 201
+    return jsonify({'error': 'File type not allowed'}), 400
 
 @app.route('/folders')
 def folders():
