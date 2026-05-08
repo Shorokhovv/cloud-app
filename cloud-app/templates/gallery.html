@@ -63,8 +63,7 @@
                 return;
             }
             grid.innerHTML = images.map((img, idx) => {
-                // Превью с водяным знаком в лайтбоксе, но миниатюры можно без
-                const thumbUrl = `/preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}`;
+                const thumbUrl = `/secure-preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?token=${encodeURIComponent(token)}`;
                 return `
                     <div class="gallery-item">
                         <img src="${thumbUrl}" alt="${img.original_name || img.filename}" 
@@ -79,8 +78,7 @@
             currentIdx = idx;
             const img = images[idx];
             // В плеере показываем с водяным знаком
-            document.getElementById('lightboxImg').src = 
-                `/preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?watermark=1`;
+document.getElementById('lightboxImg').src =     `/secure-preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?token=${encodeURIComponent(token)}`;
             document.getElementById('lightboxCaption').innerText = img.original_name || img.filename;
             document.getElementById('lightbox').classList.add('active');
         }
@@ -92,8 +90,7 @@
         function changeImage(delta) {
             currentIdx = (currentIdx + delta + images.length) % images.length;
             const img = images[currentIdx];
-            document.getElementById('lightboxImg').src = 
-                `/preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?watermark=1`;
+            document.getElementById('lightboxImg').src = `/secure-preview/${encodeURIComponent(folder)}/${encodeURIComponent(img.filename)}?token=${encodeURIComponent(token)}`;
             document.getElementById('lightboxCaption').innerText = img.original_name || img.filename;
         }
 

@@ -126,38 +126,55 @@ def index():
 def upload_file():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
+
+    files = request.files.getlist('file')  # получаем список файлов
+    if not files or all(f.filename == '' for f in files):
         return jsonify({'error': 'No selected file'}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        selected_folder = request.form.get('folder')
-        target_dir = get_folder_path(selected_folder)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        metadata = load_folder_metadata(target_dir)
-        file_path = target_dir / filename
-        while file_path.exists() or filename in metadata:
-            name, ext = os.path.splitext(filename)
-            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{name}_{timestamp}{ext}"
+
+    selected_folder = request.form.get('folder')
+    target_dir = get_folder_path(selected_folder)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    metadata = load_folder_metadata(target_dir)
+
+    uploaded = []
+    for file in files:
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
             file_path = target_dir / filename
-        file.save(file_path)
-        file_stat = file_path.stat()
-        metadata[filename] = {
-            'original_name': file.filename,
-            'size': file_stat.st_size,
-            'size_formatted': format_size(file_stat.st_size),
-            'upload_date': datetime.datetime.now().isoformat(),
-            'path': str(file_path.relative_to(BASE_DIR)),
-            'is_image': is_image(filename)
-        }
-        save_folder_metadata(target_dir, metadata)
-        return jsonify({
-            'message': 'File uploaded successfully',
-            'filename': filename,
-            'metadata': metadata[filename]
-        }), 201
-    return jsonify({'error': 'File type not allowed'}), 400
+
+            # Уникальное имя, если уже существует
+            while file_path.exists() or filename in metadata:
+                name, ext = os.path.splitext(filename)
+                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"{name}_{timestamp}{ext}"
+                file_path = target_dir / filename
+
+            file.save(file_path)
+            file_stat = file_path.stat()
+            metadata[filename] = {
+                'original_name': file.filename,
+                'size': file_stat.st_size,
+                'size_formatted': format_size(file_stat.st_size),
+                'upload_date': datetime.datetime.now().isoformat(),
+                'path': str(file_path.relative_to(BASE_DIR)),
+                'is_image': is_image(filename)
+            }
+
+            uploaded.append({
+                'filename': filename,
+                'original_name': file.filename,
+                'size_formatted': format_size(file_stat.st_size)
+            })
+
+    save_folder_metadata(target_dir, metadata)
+
+    if not uploaded:
+        return jsonify({'error': 'No valid files uploaded'}), 400
+
+    return jsonify({
+        'message': f'Uploaded {len(uploaded)} file(s)',
+        'files': uploaded,
+    }), 201
 
 @app.route('/folders')
 def folders():
@@ -343,6 +360,42 @@ def client_gallery(token):
     # Здесь можно добавить проверку пароля через отдельную форму, если нужен пароль.
     # Пока просто показываем галерею (пароль не проверяется, но хранится).
     return render_template('gallery.html', folder=folder, token=token)
+
+@app.route('/secure-preview/<path:folder>/<path:filename>')
+def secure_preview(folder, filename):
+    """Защищённый предпросмотр с водяным знаком. Требует параметр token."""
+    token = request.args.get('token', '')
+
+    access = load_access()
+    folder_found = None
+    for f, data in access.items():
+        if data['token'] == token:
+            folder_found = f
+            break
+    if not folder_found or folder_found != folder:
+        return jsonify({'error': 'Access denied'}), 403
+
+    folder_path = STORAGE_DIR / folder
+    if not folder_path.exists() or not folder_path.is_dir():
+        return jsonify({'error': 'Folder not found'}), 404
+    metadata = load_folder_metadata(folder_path)
+    if filename not in metadata:
+        return jsonify({'error': 'File not found'}), 404
+    if not is_image(filename):
+        return jsonify({'error': 'Preview not available for this file type'}), 400
+
+    file_info = metadata[filename]
+    file_path = BASE_DIR / file_info['path']
+    if not file_path.exists():
+        return jsonify({'error': 'File not found on disk'}), 404
+
+    # Всегда возвращаем изображение с водяным знаком
+    return send_file(
+        add_watermark(file_path),
+        mimetype='image/jpeg',
+        download_name=file_info.get('original_name', filename),
+        as_attachment=False
+    )
 
 def format_size(size):
     for unit in ['B', 'KB', 'MB', 'GB']:
