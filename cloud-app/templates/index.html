@@ -1,84 +1,425 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Cloud Storage</title>
+    <meta charset="UTF-8">
+    <title>Cloud Storage — Портфолио фотографа</title>
     <style>
-        body { font-family: Arial; margin: 40px; background: #f0f2f5; }
-        .container { max-width: 100%; max-height: 100%; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        .upload-form { margin: 20px 0; padding: 20px; background: white; border-radius: 5px; }        
-        .file-list { margin-top: 20px; }
-        .file-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; }
-        .file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        :root {
+            --bg: #111827;
+            --surface: #1f2937;
+            --surface-hover: #374151;
+            --text: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --border: #374151;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #22c55e;
+            --success-hover: #16a34a;
+            --secondary: #4b5563;
+            --secondary-hover: #6b7280;
+            --modal-bg: rgba(0, 0, 0, 0.8);
+            --input-bg: #111827;
+            --input-border: #4b5563;
+            --input-text: #f3f4f6;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+
+        body.light-theme {
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --surface-hover: #f9fafb;
+            --text: #111827;
+            --text-secondary: #4b5563;
+            --border: #e5e7eb;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --danger: #dc2626;
+            --danger-hover: #b91c1c;
+            --success: #16a34a;
+            --success-hover: #15803d;
+            --secondary: #9ca3af;
+            --secondary-hover: #6b7280;
+            --modal-bg: rgba(0, 0, 0, 0.6);
+            --input-bg: #ffffff;
+            --input-border: #d1d5db;
+            --input-text: #111827;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background var(--transition), color var(--transition);
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .theme-toggle {
+            background: var(--surface-hover);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text);
+            transition: all var(--transition);
+        }
+        .theme-toggle:hover { background: var(--border); }
+
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .folder-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .folder-label { font-weight: 500; color: var(--text-secondary); }
+
+        .folder-select {
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--input-border);
+            background: var(--input-bg);
+            color: var(--input-text);
+            font-size: 0.95rem;
+            min-width: 200px;
+            transition: border var(--transition);
+            outline: none;
+        }
+        .folder-select:focus { border-color: var(--accent); }
+
+        .folder-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn-accent { background: var(--accent); color: white; }
+        .btn-accent:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .btn-secondary { background: var(--secondary); color: white; }
+        .btn-secondary:hover { background: var(--secondary-hover); transform: translateY(-1px); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: var(--danger-hover); transform: translateY(-1px); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: var(--success-hover); transform: translateY(-1px); }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+        input[type="file"] {
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            font-size: 0.9rem;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        input[type="file"]::file-selector-button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            margin-right: 12px;
+            cursor: pointer;
+            transition: background var(--transition);
+        }
+        input[type="file"]::file-selector-button:hover { background: var(--accent-hover); }
+
+        .file-list { margin-top: 10px; }
+
+        .file-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: background var(--transition);
+        }
+        .file-item:last-child { border-bottom: none; }
+        .file-item:hover { background: var(--surface-hover); border-radius: var(--radius-sm); }
+
+        .file-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         .file-details { flex: 1; min-width: 0; }
-        .file-details div:first-child { font-weight: 600; color: #333; }
-        .btn {background: #007bff;color: white;border: none;padding: 10px 18px;border-radius: 5px;cursor: pointer;white-space: nowrap;text-decoration: none;}
-        .btn:hover {background: #0056b3;text-decoration: none;}
-        .btn-secondary {background: #6c757d;}
-        .btn-secondary:hover {background: #5a6268;}
-        .btn-danger {background: #dc3545;}
-        .btn-danger:hover {background: #c82333;}
-        .btn-success {background: #28a745;}
-        .btn-success:hover {background: #218838;}
-        .btn:focus,
-        .btn:active {text-decoration: none;}
-        .folder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-        .folder-select { padding: 10px 12px; border-radius: 5px; border: 1px solid #ccc; background: white; color: #333; min-width: 220px; }
-        .folder-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .file-preview { max-width: 320px; max-height: 180px; display: block; margin-top: 10px; border-radius: 8px; box-shadow: 0 8px 18px rgba(0,0,0,0.1); cursor: zoom-in; object-fit: cover; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+        .file-details div:first-child { font-weight: 600; color: var(--text); word-break: break-word; }
+        .file-details div:last-child { font-size: 0.85rem; color: var(--text-secondary); }
+
+        .file-preview {
+            max-width: 200px;
+            max-height: 120px;
+            border-radius: var(--radius-sm);
+            object-fit: contain;
+            cursor: zoom-in;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: block;
+            margin-top: 10px;
+        }
+
+        /* ---------- МОДАЛЬНОЕ ОКНО С ПЕРЕЛИСТЫВАНИЕМ ---------- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--modal-bg);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
         .modal-overlay.active { display: flex; }
-        .modal-content { max-width: 80vw; max-height: 80vh; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.2); position: relative; }
-        .modal-content img { width: auto; max-width: 100%; max-height: 80vh; display: block; }
-        .modal-close { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 18px; color: #333; }
-        footer { margin-top: 40px; padding: 20px; background: #f8f9fa; text-align: center; color: #666; border-radius: 8px; }
+
+        .modal-content {
+            max-width: 85vw;
+            max-height: 85vh;
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            border: 1px solid var(--border);
+        }
+
+        .modal-content img {
+            width: auto;
+            max-width: 100%;
+            max-height: 75vh;
+            display: block;
+        }
+
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border: none;
+            font-size: 40px;
+            padding: 10px 15px;
+            cursor: pointer;
+            z-index: 10;
+            transition: background 0.2s;
+            line-height: 1;
+        }
+        .modal-nav:hover { background: rgba(0,0,0,0.8); }
+        .modal-prev { left: 10px; }
+        .modal-next { right: 10px; }
+
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: background var(--transition);
+            z-index: 10;
+        }
+        .modal-close:hover { background: rgba(0,0,0,0.9); }
+
+        .modal-caption {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+
+        #uploadStatus p { margin-top: 8px; font-size: 0.9rem; }
+
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            background: var(--surface);
+            text-align: center;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 640px) {
+            .folder-row { flex-direction: column; align-items: flex-start; }
+            .file-row { flex-direction: column; align-items: flex-start; }
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>☁️ Портфолио фотографа</h1>
-        <div class="upload-form">
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <h1>☁️ Cloud — Портфолио фотографа</h1>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему">
+                <span id="themeIcon">🌙</span>
+                <span id="themeLabel">Тёмная</span>
+            </button>
+        </div>
+
+        <div class="card">
+            <h2>📁 Управление папками</h2>
             <div class="folder-row">
-                <label for="folderSelect">Выберите директорию:</label>
+                <span class="folder-label">Директория:</span>
                 <select id="folderSelect" class="folder-select">
                     <option value="" disabled selected>Выберите папку</option>
                 </select>
                 <div class="folder-actions">
-                    <button type="button" class="btn btn-secondary" onclick="createFolder()">➕ Новая папка</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteFolder()">🗑️ Удалить папку</button>
-                    <button type="button" class="btn btn-success" onclick="shareFolder()">🔗 Поделиться</button>
+                    <button class="btn btn-secondary" onclick="createFolder()">➕ Новая</button>
+                    <button class="btn btn-danger" onclick="deleteFolder()">🗑️ Удалить</button>
+                    <button class="btn btn-success" onclick="shareFolder()">🔗 Поделиться</button>
                 </div>
             </div>
-            <h2>Загрузить файл</h2>
-            <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+            <h2>📤 Загрузить файлы</h2>
+            <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data" style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <input type="file" name="file" multiple required>
-                <button type="submit" class="btn">Загрузить</button>
+                <button type="submit" class="btn btn-accent">⬆️ Загрузить</button>
             </form>
-            <div id="uploadStatus" style="margin-top: 10px;"></div>
+            <div id="uploadStatus"></div>
         </div>
 
-        <div class="file-list">
-            <h2>Загруженные файлы</h2>
-            <div id="files">Загрузка...</div>
+        <div class="card">
+            <h2>📋 Загруженные файлы</h2>
+            <div class="file-list" id="files">
+                <p style="color: var(--text-secondary);">Выберите папку, чтобы увидеть файлы</p>
+            </div>
         </div>
     </div>
 
-    <div id="imageModal" class="modal-overlay" onclick="closePreview(event)">
+    <!-- Модальное окно с перелистыванием -->
+    <div id="imageModal" class="modal-overlay">
         <div class="modal-content">
-            <button class="modal-close" onclick="closePreview(event)">&times;</button>
-            <img id="modalImage" src="" alt="Preview">
+            <button class="modal-close" onclick="closeLightbox()">&times;</button>
+            <button class="modal-nav modal-prev" onclick="changeImage(-1)">&#10094;</button>
+            <img id="modalImage" src="" alt="Превью">
+            <button class="modal-nav modal-next" onclick="changeImage(1)">&#10095;</button>
+            <div class="modal-caption" id="modalCaption"></div>
         </div>
     </div>
 
     <footer>
-        <p>📷 имя | номер | почта</p>
+        <p>📷 Shorokhovv | +7 (999) 123-45-67 | photo@example.com</p>
         <p>© 2025 Портфолио фотографа</p>
     </footer>
 
     <script>
+        // Тема
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeLabel = document.getElementById('themeLabel');
+        const body = document.body;
+
+        function applyTheme(theme) {
+            if (theme === 'light') {
+                body.classList.add('light-theme');
+                themeIcon.textContent = '☀️';
+                themeLabel.textContent = 'Светлая';
+            } else {
+                body.classList.remove('light-theme');
+                themeIcon.textContent = '🌙';
+                themeLabel.textContent = 'Тёмная';
+            }
+        }
+
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        applyTheme(savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const isLight = body.classList.contains('light-theme');
+            const newTheme = isLight ? 'dark' : 'light';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+
+        // Основной код
         function buildPath(...parts) {
             return parts.map(part => encodeURIComponent(part).replace(/%2F/g, '/')).join('/');
         }
+
+        let currentImages = [];
+        let currentIndex = 0;
 
         async function loadFolders() {
             try {
@@ -90,116 +431,137 @@
                 folders.forEach(folder => {
                     select.innerHTML += `<option value="${folder}">${folder}</option>`;
                 });
-                if (current) {
-                    select.value = current;
-                }
+                if (current) select.value = current;
             } catch (error) {
-                console.error('Не удалось загрузить список папок', error);
+                console.error('Ошибка загрузки папок', error);
             }
         }
 
         async function createFolder() {
             const name = prompt('Введите имя новой папки:');
-            if (!name) {
-                return;
-            }
+            if (!name) return;
             try {
                 const formData = new FormData();
                 formData.append('folder', name);
-                const response = await fetch('/create-folder', {
-                    method: 'POST',
-                    body: formData
-                });
+                const response = await fetch('/create-folder', { method: 'POST', body: formData });
                 const result = await response.json();
+                const statusDiv = document.getElementById('uploadStatus');
                 if (response.ok) {
                     await loadFolders();
                     document.getElementById('folderSelect').value = result.folder;
-                    document.getElementById('uploadStatus').innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    statusDiv.innerHTML = `<p style="color: var(--success);">${result.message}</p>`;
                     loadFiles();
                 } else {
-                    document.getElementById('uploadStatus').innerHTML = `<p style="color: red;">Ошибка: ${result.error}</p>`;
+                    statusDiv.innerHTML = `<p style="color: var(--danger);">Ошибка: ${result.error}</p>`;
                 }
             } catch (error) {
-                document.getElementById('uploadStatus').innerHTML = '<p style="color: red;">Ошибка создания папки</p>';
+                document.getElementById('uploadStatus').innerHTML = `<p style="color: var(--danger);">Ошибка создания папки</p>`;
             }
         }
 
         async function loadFiles() {
+            const folderSelect = document.getElementById('folderSelect');
+            const selectedFolder = folderSelect.value;
+            const container = document.getElementById('files');
+
+            if (!selectedFolder) {
+                container.innerHTML = '<p style="color: var(--text-secondary);">Выберите папку для отображения файлов</p>';
+                return;
+            }
+
             try {
-                const folderSelect = document.getElementById('folderSelect');
-                const folderParam = folderSelect.value ? `?folder=${encodeURIComponent(folderSelect.value)}` : '';
+                const folderParam = `?folder=${encodeURIComponent(selectedFolder)}`;
                 const response = await fetch(`/list${folderParam}`);
                 const files = await response.json();
-                const container = document.getElementById('files');
-                
+                currentImages = files.filter(f => f.is_image);
+
                 if (files.length === 0) {
                     container.innerHTML = '<p>Нет загруженных файлов</p>';
                     return;
                 }
-                
+
                 let html = '';
                 files.forEach(file => {
                     const folderPath = file.folder ? buildPath(file.folder) : null;
                     const fileUrl = folderPath ? `/files/${buildPath(folderPath, file.filename)}` : `/files/${encodeURIComponent(file.filename)}`;
                     const previewUrl = folderPath ? `/preview/${buildPath(folderPath, file.filename)}` : `/preview/${encodeURIComponent(file.filename)}`;
                     const deleteUrl = folderPath ? `/delete/${buildPath(folderPath, file.filename)}` : `/delete/${encodeURIComponent(file.filename)}`;
+                    const imgIndex = file.is_image ? currentImages.findIndex(img => img.filename === file.filename) : -1;
                     html += `
                         <div class="file-item">
                             <div class="file-row">
                                 <div class="file-details">
                                     <div>${file.original_name || file.filename}</div>
-                                    <div style="font-size: 0.9em; color: #555;">${file.size_formatted || file.size + ' bytes'}${file.folder ? ` · ${file.folder}` : ''}</div>
+                                    <div>${file.size_formatted || file.size + ' bytes'}${file.folder ? ` · ${file.folder}` : ''}</div>
                                 </div>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <a class="btn" href="${fileUrl}" download> Скачать</a>
-                                    <button class="btn btn-danger" onclick="deleteFile('${deleteUrl}')">🗑️ Удалить</button>
+                                    <a class="btn btn-accent btn-sm" href="${fileUrl}" download>⬇️ Скачать</a>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteFile('${deleteUrl}')">🗑️ Удалить</button>
                                 </div>
                             </div>
-                            ${file.is_image ? `<img class="file-preview" src="${previewUrl}" alt="${file.original_name || file.filename}" onclick="openPreview('${previewUrl}')">` : ''}
+                            ${file.is_image ? `<img class="file-preview" src="${previewUrl}" alt="${file.original_name || file.filename}" 
+                                onclick="openLightbox(${imgIndex})">` : ''}
                         </div>
                     `;
                 });
                 container.innerHTML = html;
             } catch (error) {
-                document.getElementById('files').innerHTML = '<p>Ошибка загрузки списка файлов</p>';
+                container.innerHTML = '<p>Ошибка загрузки списка файлов</p>';
             }
-        }
-        
-        function openPreview(url) {
-            const modal = document.getElementById('imageModal');
-            const modalImage = document.getElementById('modalImage');
-            modalImage.src = url;
-            modal.classList.add('active');
         }
 
-        function closePreview(event) {
-            if (event.target.id === 'imageModal' || event.target.classList.contains('modal-close')) {
-                const modal = document.getElementById('imageModal');
-                const modalImage = document.getElementById('modalImage');
-                modal.classList.remove('active');
-                modalImage.src = '';
-            }
+        function openLightbox(index) {
+            currentIndex = index;
+            updateLightboxImage();
+            document.getElementById('imageModal').classList.add('active');
         }
+
+        function closeLightbox() {
+            document.getElementById('imageModal').classList.remove('active');
+        }
+
+        function changeImage(delta) {
+            if (currentImages.length === 0) return;
+            currentIndex = (currentIndex + delta + currentImages.length) % currentImages.length;
+            updateLightboxImage();
+        }
+
+        function updateLightboxImage() {
+            if (currentImages.length === 0 || currentIndex < 0 || currentIndex >= currentImages.length) return;
+            const img = currentImages[currentIndex];
+            const folderPath = img.folder ? buildPath(img.folder) : null;
+            const previewUrl = folderPath ? `/preview/${buildPath(folderPath, img.filename)}` : `/preview/${encodeURIComponent(img.filename)}`;
+            document.getElementById('modalImage').src = previewUrl;
+            document.getElementById('modalCaption').innerText = img.original_name || img.filename;
+        }
+
+        document.getElementById('imageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeLightbox();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            const modal = document.getElementById('imageModal');
+            if (!modal.classList.contains('active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') changeImage(-1);
+            if (e.key === 'ArrowRight') changeImage(1);
+        });
 
         async function deleteFile(path) {
-            if (!confirm('Удалить файл? Это действие необратимо.')) {
-                return;
-            }
+            if (!confirm('Удалить файл? Это действие необратимо.')) return;
             const statusDiv = document.getElementById('uploadStatus');
-            statusDiv.innerHTML = 'Удаление...';
+            statusDiv.innerHTML = '<p>Удаление...</p>';
             try {
-                const response = await fetch(path, {
-                    method: 'DELETE'
-                });
+                const response = await fetch(path, { method: 'DELETE' });
                 const result = await response.json();
                 if (response.ok) {
-                    statusDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    statusDiv.innerHTML = `<p style="color: var(--success);">${result.message}</p>`;
                     loadFiles();
                 } else {
-                    statusDiv.innerHTML = `<p style="color: red;">Ошибка: ${result.error}</p>`;
+                    statusDiv.innerHTML = `<p style="color: var(--danger);">Ошибка: ${result.error}</p>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = '<p style="color: red;">Ошибка удаления</p>';
+                statusDiv.innerHTML = '<p style="color: var(--danger);">Ошибка удаления</p>';
             }
         }
 
@@ -210,28 +572,23 @@
                 alert('Сначала выберите папку для удаления.');
                 return;
             }
-            if (!confirm(`Удалить папку "${folder}" и все её файлы? Это действие необратимо.`)) {
-                return;
-            }
+            if (!confirm(`Удалить папку "${folder}" и все её файлы?`)) return;
             const statusDiv = document.getElementById('uploadStatus');
-            statusDiv.innerHTML = 'Удаление папки...';
+            statusDiv.innerHTML = '<p>Удаление папки...</p>';
             try {
                 const formData = new FormData();
                 formData.append('folder', folder);
-                const response = await fetch('/delete-folder', {
-                    method: 'POST',
-                    body: formData
-                });
+                const response = await fetch('/delete-folder', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (response.ok) {
-                    statusDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    statusDiv.innerHTML = `<p style="color: var(--success);">${result.message}</p>`;
                     await loadFolders();
                     loadFiles();
                 } else {
-                    statusDiv.innerHTML = `<p style="color: red;">Ошибка: ${result.error}</p>`;
+                    statusDiv.innerHTML = `<p style="color: var(--danger);">Ошибка: ${result.error}</p>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = '<p style="color: red;">Ошибка удаления папки</p>';
+                statusDiv.innerHTML = '<p style="color: var(--danger);">Ошибка удаления папки</p>';
             }
         }
 
@@ -247,13 +604,9 @@
                 const formData = new FormData();
                 formData.append('folder', folder);
                 formData.append('password', password);
-                const response = await fetch('/generate-access', {
-                    method: 'POST',
-                    body: formData
-                });
+                const response = await fetch('/generate-access', { method: 'POST', body: formData });
                 const data = await response.json();
                 if (response.ok && data.url) {
-                    // Показываем ссылку, которую можно скопировать
                     prompt('Ссылка для клиента (скопируйте):', data.url);
                 } else {
                     alert('Ошибка: ' + (data.error || 'Не удалось создать доступ'));
@@ -266,34 +619,30 @@
         document.getElementById('folderSelect').addEventListener('change', loadFiles);
         loadFolders();
         loadFiles();
-        
+
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             const statusDiv = document.getElementById('uploadStatus');
-            statusDiv.innerHTML = 'Загрузка...';
-            
+            statusDiv.innerHTML = '<p>Загрузка...</p>';
+            const folderSelect = document.getElementById('folderSelect');
+            const selectedFolder = folderSelect.value;
+            if (!selectedFolder) {
+                statusDiv.innerHTML = '<p style="color: var(--danger);">Выберите папку перед загрузкой.</p>';
+                return;
+            }
+            formData.append('folder', selectedFolder);
             try {
-                const folderSelect = document.getElementById('folderSelect');
-                const selectedFolder = folderSelect.value;
-                if (!selectedFolder) {
-                    statusDiv.innerHTML = '<p style="color: red;">Выберите папку перед загрузкой.</p>';
-                    return;
-                }
-                formData.append('folder', selectedFolder);
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+                const response = await fetch('/upload', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (response.ok) {
-                    statusDiv.innerHTML = '<p style="color: green;">Файл загружен успешно!</p>';
+                    statusDiv.innerHTML = '<p style="color: var(--success);">Файл(ы) загружены успешно!</p>';
                     loadFiles();
                 } else {
-                    statusDiv.innerHTML = '<p style="color: red;">Ошибка: ' + result.error + '</p>';
-                }   
+                    statusDiv.innerHTML = `<p style="color: var(--danger);">Ошибка: ${result.error}</p>`;
+                }
             } catch (error) {
-                statusDiv.innerHTML = '<p style="color: red;">Ошибка загрузки</p>';
+                statusDiv.innerHTML = '<p style="color: var(--danger);">Ошибка загрузки</p>';
             }
         });
     </script>
