@@ -358,7 +358,12 @@ def generate_access():
             return jsonify({'error': 'Invalid folder'}), 400
         token = secrets.token_urlsafe(16)
         access = load_access()
-        access[folder] = {'token': token, 'password': password}
+        access[folder] = {
+            'token': token,
+            'password': password,
+            'failed_attempts': 0,
+            'is_blocked': False
+        }
         save_access(access)
         if 'X-Forwarded-Host' in request.headers:
             host = request.headers['X-Forwarded-Host']
@@ -372,23 +377,77 @@ def generate_access():
         print(f"Ошибка в generate_access: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/list-access')
+def list_access():
+    access = load_access()
+    result = []
+    for folder, data in access.items():
+        result.append({
+            'folder': folder,
+            'token': data.get('token', ''),
+            'password': data.get('password', ''),
+            'is_blocked': data.get('is_blocked', False),
+            'failed_attempts': data.get('failed_attempts', 0)
+        })
+    return jsonify(result)
+
+@app.route('/verify-password', methods=['POST'])
+def verify_password():
+    token = request.form.get('token', '')
+    password = request.form.get('password', '')
+    access = load_access()
+    folder = None
+    for f, data in access.items():
+        if data.get('token') == token:
+            folder = f
+            break
+    if not folder:
+        return jsonify({'error': 'Invalid token'}), 403
+    access_data = access[folder]
+    if access_data.get('is_blocked'):
+        return jsonify({'error': 'Access blocked', 'blocked': True}), 403
+    correct_password = access_data.get('password', '')
+    if not correct_password:
+        return jsonify({'success': True})
+    if password == correct_password:
+        access_data['failed_attempts'] = 0
+        save_access(access)
+        return jsonify({'success': True})
+    else:
+        access_data['failed_attempts'] = access_data.get('failed_attempts', 0) + 1
+        if access_data['failed_attempts'] >= 5:
+            access_data['is_blocked'] = True
+            print(f"Токен для папки '{folder}' заблокирован после 5 неправильных попыток")
+        save_access(access)
+        return jsonify({
+            'success': False,
+            'attempts_left': max(0, 5 - access_data['failed_attempts']),
+            'blocked': access_data.get('is_blocked', False)
+        })
+
 @app.route('/revoke-access', methods=['POST'])
 def revoke_access():
-    folder = request.form.get('folder')
-    if not folder:
-        return jsonify({'error': 'Folder required'}), 400
+    token = request.form.get('token')
+    if not token:
+        return jsonify({'error': 'Token required'}), 400
     access = load_access()
-    if folder in access:
-        del access[folder]
+    folder_to_delete = None
+    for f, data in access.items():
+        if data.get('token') == token:
+            folder_to_delete = f
+            break
+    if folder_to_delete:
+        del access[folder_to_delete]
         save_access(access)
-    return jsonify({'message': 'Access revoked'})
+        return jsonify({'message': 'Access revoked'})
+    return jsonify({'error': 'Token not found'}), 404
 
 @app.route('/gallery/<token>')
 def client_gallery(token):
     access = load_access()
     folder = None
     for f, data in access.items():
-        if data['token'] == token:
+        if data.get('token') == token:
             folder = f
             break
     if not folder or not (STORAGE_DIR / folder).is_dir():

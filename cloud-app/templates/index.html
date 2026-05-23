@@ -325,6 +325,66 @@
             .folder-row { flex-direction: column; align-items: flex-start; }
             .file-row { flex-direction: column; align-items: flex-start; }
         }
+
+        /* ---------- УПРАВЛЕНИЕ ТОКЕНАМИ ---------- */
+        .token-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: background var(--transition);
+        }
+        .token-item:last-child { border-bottom: none; }
+        .token-item:hover { background: var(--surface-hover); border-radius: var(--radius-sm); }
+
+        .token-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .token-folder { font-weight: 600; color: var(--text); }
+
+        .token-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+            background: var(--surface-hover);
+            border-radius: var(--radius-sm);
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+
+        .token-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+        }
+
+        .token-field-label { color: var(--text-secondary); min-width: 80px; }
+
+        .token-value {
+            flex: 1;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        .token-value.hidden { color: var(--text-secondary); }
+
+        .token-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .token-blocked { opacity: 0.5; }
+        .token-blocked .token-item { background: var(--danger); opacity: 0.3; }
     </style>
 </head>
 <body>
@@ -361,7 +421,12 @@
         </div>
 
         <div class="card">
-            <h2>📋 Загруженные файлы</h2>
+            <h2>� Открытые токены</h2>
+            <div id="accessTokens" style="color: var(--text-secondary);">Нет открытых токенов</div>
+        </div>
+
+        <div class="card">
+            <h2>�📋 Загруженные файлы</h2>
             <div class="file-list" id="files">
                 <p style="color: var(--text-secondary);">Выберите папку, чтобы увидеть файлы</p>
             </div>
@@ -607,9 +672,131 @@
                 const response = await fetch('/generate-access', { method: 'POST', body: formData });
                 const data = await response.json();
                 if (response.ok && data.url) {
-                    prompt('Ссылка для клиента (скопируйте):', data.url);
+                    await loadAccessTokens();
+                    alert('Ссылка создана и добавлена в список открытых токенов!');
                 } else {
                     alert('Ошибка: ' + (data.error || 'Не удалось создать доступ'));
+                }
+            } catch (error) {
+                alert('Ошибка сети');
+            }
+        }
+
+        async function loadAccessTokens() {
+            try {
+                const response = await fetch('/list-access');
+                const tokens = await response.json();
+                const container = document.getElementById('accessTokens');
+                
+                if (tokens.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-secondary);">Нет открытых токенов</p>';
+                    return;
+                }
+
+                let html = '';
+                tokens.forEach((token, idx) => {
+                    const isBlocked = token.is_blocked;
+                    const blockedClass = isBlocked ? 'token-blocked' : '';
+                    html += `
+                        <div class="token-item ${blockedClass}">
+                            <div class="token-header">
+                                <span class="token-folder">📁 ${token.folder}</span>
+                                ${isBlocked ? '<span style="color: var(--danger);">🔒 Заблокирован</span>' : ''}
+                            </div>
+                            <div class="token-details">
+                                <div class="token-field">
+                                    <span class="token-field-label">Токен:</span>
+                                    <span class="token-value hidden" id="token-display-${idx}">••••••••••••••••••••</span>
+                                    <button class="btn btn-secondary btn-sm" onclick="toggleTokenVisibility(${idx}, '${token.token}')">
+                                        👁️ Показать
+                                    </button>
+                                </div>
+                                ${token.password ? `
+                                <div class="token-field">
+                                    <span class="token-field-label">Пароль:</span>
+                                    <span class="token-value hidden" id="password-display-${idx}">••••••••••••••••••••</span>
+                                    <button class="btn btn-secondary btn-sm" onclick="togglePasswordVisibility(${idx}, '${token.password.replace(/'/g, "\\'")}')">
+                                        👁️ Показать
+                                    </button>
+                                </div>
+                                ` : ''}
+                                ${token.failed_attempts > 0 && !isBlocked ? `
+                                <div style="color: var(--danger); font-size: 0.85rem;">
+                                    ⚠️ Неправильных попыток: ${token.failed_attempts}/5
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="token-actions">
+                                <button class="btn btn-accent btn-sm" onclick="copyTokenLink(${idx})">📋 Копировать ссылку</button>
+                                <button class="btn btn-danger btn-sm" onclick="closeToken('${token.token}')">❌ Закрыть</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Ошибка загрузки токенов', error);
+            }
+        }
+
+        function toggleTokenVisibility(idx, token) {
+            const elem = document.getElementById(`token-display-${idx}`);
+            const button = event.target;
+            
+            if (elem.classList.contains('hidden')) {
+                elem.textContent = token;
+                elem.classList.remove('hidden');
+                button.textContent = '👁️ Скрыть';
+            } else {
+                elem.textContent = '••••••••••••••••••••';
+                elem.classList.add('hidden');
+                button.textContent = '👁️ Показать';
+            }
+        }
+
+        function togglePasswordVisibility(idx, password) {
+            const elem = document.getElementById(`password-display-${idx}`);
+            const button = event.target;
+            
+            if (elem.classList.contains('hidden')) {
+                elem.textContent = password;
+                elem.classList.remove('hidden');
+                button.textContent = '👁️ Скрыть';
+            } else {
+                elem.textContent = '••'.repeat(password.length / 2 + 1).substring(0, password.length);
+                elem.classList.add('hidden');
+                button.textContent = '👁️ Показать';
+            }
+        }
+
+        async function copyTokenLink(idx) {
+            try {
+                const response = await fetch('/list-access');
+                const tokens = await response.json();
+                const token = tokens[idx];
+                const host = window.location.hostname;
+                const port = window.location.port ? ':' + window.location.port : '';
+                const scheme = window.location.protocol.replace(':', '');
+                const link = `${scheme}://${host}${port}/gallery/${token.token}`;
+                navigator.clipboard.writeText(link);
+                alert('Ссылка скопирована в буфер обмена!');
+            } catch (error) {
+                alert('Ошибка копирования ссылки');
+            }
+        }
+
+        async function closeToken(token) {
+            if (!confirm('Закрыть этот токен? Доступ к галерее будет перекрыт.')) return;
+            try {
+                const formData = new FormData();
+                formData.append('token', token);
+                const response = await fetch('/revoke-access', { method: 'POST', body: formData });
+                if (response.ok) {
+                    await loadAccessTokens();
+                    alert('Токен закрыт.');
+                } else {
+                    alert('Ошибка при закрытии токена');
                 }
             } catch (error) {
                 alert('Ошибка сети');
@@ -619,6 +806,7 @@
         document.getElementById('folderSelect').addEventListener('change', loadFiles);
         loadFolders();
         loadFiles();
+        loadAccessTokens();
 
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();

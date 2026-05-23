@@ -1,0 +1,16 @@
+{
+  "photographer": {
+    "name": "Илья",
+    "icon": "📷"
+  },
+  "contact": {
+    "phone": "+7 (111) 123-45-67",
+    "email": "photo@example.com"
+  },
+  "portfolio": {
+    "title": "Портфолио1",
+    "year": 2026,
+    "copyright": "Все права защищены."
+  },
+  "watermark": "© Shorokhovv"
+}

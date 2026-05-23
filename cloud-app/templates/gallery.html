@@ -226,6 +226,21 @@
         <div id="galleryGrid" class="gallery-grid">Загрузка...</div>
     </div>
 
+    <!-- Модальное окно для проверки пароля -->
+    <div id="passwordModal" class="lightbox" style="display: flex;">
+        <div style="background: var(--surface); border-radius: var(--radius); padding: 32px; max-width: 400px; margin: auto; text-align: center; border: 1px solid var(--border);">
+            <h2 style="margin-bottom: 16px; color: var(--text);">🔒 Введите пароль</h2>
+            <p id="passwordError" style="color: var(--danger); margin-bottom: 16px; min-height: 20px;"></p>
+            <form onsubmit="submitPassword(event)" style="display: flex; flex-direction: column; gap: 16px;">
+                <input type="password" id="passwordInput" placeholder="Пароль" autocomplete="off"
+                       style="padding: 12px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: var(--radius-sm); font-size: 1rem; outline: none;">
+                <div style="display: flex; gap: 12px;">
+                    <button type="submit" class="btn btn-accent" style="flex: 1;">✅ Подтвердить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Лайтбокс -->
     <div id="lightbox" class="lightbox" oncontextmenu="return false">
         <button class="close" onclick="closeLightbox()">&times;</button>
@@ -239,9 +254,9 @@
         <div class="caption" id="lightboxCaption"></div>
     </div>
 
-    <footer>
-        <p>📷 Shorokhovv | +7 (999) 123-45-67 | photo@example.com</p>
-        <p>© 2025 Портфолио. Все права защищены.</p>
+    <footer id="footer">
+        <p id="footerContact"></p>
+        <p id="footerCopyright"></p>
     </footer>
 
     <script>
@@ -259,6 +274,97 @@
         const folder = "{{ folder }}";
         const token = "{{ token }}";
         let images = [];
+        let passwordVerified = false;
+
+        async function submitPassword(event) {
+            event.preventDefault();
+            const password = document.getElementById('passwordInput').value;
+            const errorDiv = document.getElementById('passwordError');
+
+            try {
+                const formData = new FormData();
+                formData.append('token', token);
+                formData.append('password', password);
+                const response = await fetch('/verify-password', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.blocked) {
+                    errorDiv.textContent = '❌ Доступ заблокирован после 5 неправильных попыток';
+                    return;
+                }
+
+                if (data.success) {
+                    passwordVerified = true;
+                    document.getElementById('passwordModal').style.display = 'none';
+                    loadFooterData();
+                    loadGallery();
+                } else {
+                    const attemptsLeft = data.attempts_left || 0;
+                    if (attemptsLeft > 0) {
+                        errorDiv.textContent = `❌ Неправильный пароль. Осталось попыток: ${attemptsLeft}`;
+                    } else {
+                        errorDiv.textContent = '❌ Доступ заблокирован после 5 неправильных попыток';
+                    }
+                    document.getElementById('passwordInput').value = '';
+                }
+            } catch (error) {
+                errorDiv.textContent = '❌ Ошибка при проверке пароля';
+            }
+        }
+
+        async function checkPasswordRequired() {
+            try {
+                const formData = new FormData();
+                formData.append('token', token);
+                formData.append('password', '');
+                const response = await fetch('/verify-password', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.blocked) {
+                    document.getElementById('passwordModal').innerHTML = `
+                        <div style="background: var(--surface); border-radius: var(--radius); padding: 32px; max-width: 400px; margin: auto; text-align: center; border: 1px solid var(--border);">
+                            <h2 style="margin-bottom: 16px; color: var(--danger);">🔒 Доступ заблокирован</h2>
+                            <p style="color: var(--text); margin-bottom: 16px;">Этот токен был заблокирован после 5 неправильных попыток ввода пароля.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                if (data.success) {
+                    // Пароль не требуется
+                    passwordVerified = true;
+                    document.getElementById('passwordModal').style.display = 'none';
+                    loadFooterData();
+                    loadGallery();
+                } else {
+                    // Требуется пароль
+                    document.getElementById('passwordModal').style.display = 'flex';
+                    document.getElementById('passwordInput').focus();
+                }
+            } catch (error) {
+                console.error('Ошибка проверки пароля:', error);
+                loadFooterData();
+                loadGallery();
+            }
+        }
+
+        async function loadFooterData() {
+            try {
+                const res = await fetch('/static/aboutPhotograph.json');
+                const data = await res.json();
+                const { photographer, contact, portfolio } = data;
+                
+                // Заполняем контактную информацию
+                document.getElementById('footerContact').innerText = 
+                    `${photographer.icon} ${photographer.name} | ${contact.phone} | ${contact.email}`;
+                
+                // Заполняем авторские права
+                document.getElementById('footerCopyright').innerText = 
+                    `© ${portfolio.year} ${portfolio.title}. ${portfolio.copyright}`;
+            } catch (error) {
+                console.error('Ошибка загрузки данных футера:', error);
+            }
+        }
 
         async function loadGallery() {
             try {
@@ -332,7 +438,8 @@
             if (e.target === this) closeLightbox();
         });
 
-        loadGallery();
+        // Проверяем требуется ли пароль
+        checkPasswordRequired();
     </script>
 </body>
 </html>
