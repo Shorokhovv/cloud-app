@@ -420,28 +420,31 @@
             <div id="uploadStatus"></div>
         </div>
 
-        <div class="card">            <h2>📝 Текст ватермарки</h2>
-            <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 250px;">
-                    <label for="watermarkInput" style="display: block; margin-bottom: 8px; font-weight: 500;">Текст для наложения на фото:</label>
-                    <input type="text" id="watermarkInput" placeholder="Введите текст ватермарки" 
-                           style="width: 100%; padding: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: var(--radius-sm); font-size: 1rem; outline: none;">
-                </div>
-                <button class="btn btn-accent" onclick="saveWatermarkGlobal()">💾 Сохранить</button>
-            </div>
-        </div>
 
-        <div class="card">            <h2>� Открытые токены</h2>
+        <div class="card">            <h2>Открытые токены</h2>
             <div id="accessTokens" style="color: var(--text-secondary);">Нет открытых токенов</div>
         </div>
 
         <div class="card">
-            <h2>�📋 Загруженные файлы</h2>
+            <h2>📋 Загруженные файлы</h2>
             <div class="file-list" id="files">
                 <p style="color: var(--text-secondary);">Выберите папку, чтобы увидеть файлы</p>
             </div>
         </div>
+        
+        <div class="card">            <h2>📝 Текст ватермарки</h2>
+        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 250px;">
+                <label for="watermarkInput" style="display: block; margin-bottom: 8px; font-weight: 500;">Текст для наложения на фото:</label>
+                <input type="text" id="watermarkInput" placeholder="Введите текст ватермарки" 
+                    style="width: 100%; padding: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: var(--radius-sm); font-size: 1rem; outline: none;">
+            </div>
+            <button class="btn btn-accent" onclick="saveWatermarkGlobal()">💾 Сохранить</button>
+        </div>
+        </div>
     </div>
+
+
 
     <!-- Модальное окно с перелистыванием -->
     <div id="imageModal" class="modal-overlay">

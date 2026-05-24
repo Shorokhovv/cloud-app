@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Галерея — Портфолио </title>
+    <title>Галерея </title>
     <style>
         :root {
             --bg: #111827;
@@ -101,7 +101,6 @@
             object-fit: cover;
             display: block;
             -webkit-user-drag: none;
-            user-drag: none;
             pointer-events: none;
         }
 
@@ -134,7 +133,6 @@
             object-fit: contain;
             box-shadow: 0 0 60px rgba(0,0,0,0.9);
             -webkit-user-drag: none;
-            user-drag: none;
         }
 
         /* Водяной знак-сетка */
@@ -151,9 +149,9 @@
             );
             pointer-events: none;
         }
-
-        .watermark-overlay::before {
-            content: "Shorokhovv";
+        /* #обязательное наложение еле заметной ватермарки 
+        .watermark-overlay::before { 
+            content: var(--watermark); # исходя из данных в aboutPhotograph.json
             position: absolute;
             top: 50%;
             left: 50%;
@@ -164,7 +162,7 @@
             letter-spacing: 12px;
             font-weight: bold;
         }
-
+        */
         .lightbox .close,
         .lightbox .nav,
         .lightbox .fullscreen-btn {
@@ -218,8 +216,7 @@
     <div class="gallery-container">
         <div class="header">
             <div class="logo">
-                <h1>📷 Портфолио</h1>
-                <small>Галерея доступна только для просмотра</small>
+                <h1>📷 Фото для просмотра</h1>
             </div>
         </div>
 

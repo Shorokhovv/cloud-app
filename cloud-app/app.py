@@ -97,13 +97,10 @@ def add_watermark(image_path, text="Shorokhovv", opacity=0.5):
             base_font = ImageFont.load_default()
 
         target_width = img.width - 40
-        # Если шрифт - стандартный, не масштабируем
-        if hasattr(base_font, 'getsize') or True:  # Для надёжности подберём размер
-            # Определяем оптимальный размер шрифта, чтобы текст вписался в ширину
+        if hasattr(base_font, 'getsize') or True:
             size = 10
             best_size = 10
             best_font = base_font
-            # Начинаем с 10 и увеличиваем, пока ширина не превысит допустимую
             while True:
                 font = ImageFont.truetype(font_path, size=size) if 'font_path' in dir() else base_font
                 bbox = draw.textbbox((0,0), text, font=font)
@@ -161,7 +158,7 @@ def load_about_photo():
     if ABOUT_FILE.exists():
         with open(ABOUT_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
-    return {'watermark': 'Shorokhovv'}
+    return {'watermark': ''}
 
 def save_about_photo(data):
     with open(ABOUT_FILE, 'w', encoding='utf-8') as f:
@@ -172,7 +169,21 @@ def save_about_photo(data):
 def index():
     return render_template('index.html')
 
+
+from functools import wraps
+
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('X-Admin-Token')
+        admin_token = os.getenv('ADMIN_TOKEN')
+        if not admin_token or token != admin_token:
+            return jsonify({'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
 @app.route('/upload', methods=['POST'])
+@require_admin
 def upload_file():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
