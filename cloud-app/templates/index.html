@@ -420,8 +420,18 @@
             <div id="uploadStatus"></div>
         </div>
 
-        <div class="card">
-            <h2>� Открытые токены</h2>
+        <div class="card">            <h2>📝 Текст ватермарки</h2>
+            <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px;">
+                    <label for="watermarkInput" style="display: block; margin-bottom: 8px; font-weight: 500;">Текст для наложения на фото:</label>
+                    <input type="text" id="watermarkInput" placeholder="Введите текст ватермарки" 
+                           style="width: 100%; padding: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: var(--radius-sm); font-size: 1rem; outline: none;">
+                </div>
+                <button class="btn btn-accent" onclick="saveWatermarkGlobal()">💾 Сохранить</button>
+            </div>
+        </div>
+
+        <div class="card">            <h2>� Открытые токены</h2>
             <div id="accessTokens" style="color: var(--text-secondary);">Нет открытых токенов</div>
         </div>
 
@@ -444,12 +454,30 @@
         </div>
     </div>
 
-    <footer>
-        <p>📷 Shorokhovv | +7 (999) 123-45-67 | photo@example.com</p>
-        <p>© 2025 Портфолио фотографа</p>
+    <footer id="footer">
+        <p id="footerContact"></p>
+        <p id="footerCopyright"></p>
     </footer>
 
     <script>
+        // Загрузка данных footer'а
+        async function loadFooterData() {
+            try {
+                const res = await fetch('/static/aboutPhotograph.json');
+                const data = await res.json();
+                const { photographer, contact, portfolio } = data;
+                
+                document.getElementById('footerContact').innerText = 
+                    `${photographer.icon} ${photographer.name} | ${contact.phone} | ${contact.email}`;
+                
+                document.getElementById('footerCopyright').innerText = 
+                    `© ${portfolio.year} ${portfolio.title}. ${portfolio.copyright}`;
+            } catch (error) {
+                console.error('Ошибка загрузки данных футера:', error);
+            }
+        }
+
+        loadFooterData();
         // Тема
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
@@ -697,10 +725,17 @@
                 tokens.forEach((token, idx) => {
                     const isBlocked = token.is_blocked;
                     const blockedClass = isBlocked ? 'token-blocked' : '';
+                    const watermarkEnabled = token.watermark_enabled !== false;
                     html += `
                         <div class="token-item ${blockedClass}">
                             <div class="token-header">
                                 <span class="token-folder">📁 ${token.folder}</span>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" ${watermarkEnabled ? 'checked' : ''} 
+                                           onchange="toggleWatermark('${token.token}', this.checked)"
+                                           style="cursor: pointer;">
+                                    <span style="font-size: 0.9rem;">Водяной знак</span>
+                                </label>
                                 ${isBlocked ? '<span style="color: var(--danger);">🔒 Заблокирован</span>' : ''}
                             </div>
                             <div class="token-details">
@@ -729,6 +764,7 @@
                             <div class="token-actions">
                                 <button class="btn btn-accent btn-sm" onclick="copyTokenLink(${idx})">📋 Копировать ссылку</button>
                                 <button class="btn btn-danger btn-sm" onclick="closeToken('${token.token}')">❌ Закрыть</button>
+                                ${isBlocked ? `<button class="btn btn-secondary btn-sm" onclick="reopenAccess('${token.token}')">🔓 Открыть снова</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -770,6 +806,39 @@
             }
         }
 
+        async function toggleWatermark(token, enabled) {
+            try {
+                const formData = new FormData();
+                formData.append('token', token);
+                formData.append('watermark_enabled', enabled ? 'true' : 'false');
+                const response = await fetch('/update-token-settings', { method: 'POST', body: formData });
+                if (response.ok) {
+                    await loadAccessTokens();
+                } else {
+                    alert('Ошибка при изменении настроек');
+                }
+            } catch (error) {
+                alert('Ошибка сети');
+            }
+        }
+
+        async function reopenAccess(token) {
+            if (!confirm('Разблокировать доступ для этого токена?')) return;
+            try {
+                const formData = new FormData();
+                formData.append('token', token);
+                const response = await fetch('/reopen-access', { method: 'POST', body: formData });
+                if (response.ok) {
+                    await loadAccessTokens();
+                    alert('Доступ разблокирован!');
+                } else {
+                    alert('Ошибка при разблокировке');
+                }
+            } catch (error) {
+                alert('Ошибка сети');
+            }
+        }
+
         async function copyTokenLink(idx) {
             try {
                 const response = await fetch('/list-access');
@@ -803,10 +872,43 @@
             }
         }
 
+        async function loadWatermarkText() {
+            try {
+                const res = await fetch('/static/aboutPhotograph.json');
+                const data = await res.json();
+                const watermarkText = data.watermark || 'Shorokhovv';
+                document.getElementById('watermarkInput').value = watermarkText;
+            } catch (error) {
+                console.error('Ошибка загрузки текста ватермарки:', error);
+            }
+        }
+
+        async function saveWatermarkGlobal() {
+            const watermarkText = document.getElementById('watermarkInput').value;
+            if (!watermarkText.trim()) {
+                alert('Введите текст ватермарки');
+                return;
+            }
+            try {
+                const formData = new FormData();
+                formData.append('watermark_text', watermarkText);
+                const response = await fetch('/update-watermark-text', { method: 'POST', body: formData });
+                if (response.ok) {
+                    alert('Текст ватермарки сохранен!');
+                    await loadAccessTokens();
+                } else {
+                    alert('Ошибка при сохранении');
+                }
+            } catch (error) {
+                alert('Ошибка сети');
+            }
+        }
+
         document.getElementById('folderSelect').addEventListener('change', loadFiles);
         loadFolders();
         loadFiles();
         loadAccessTokens();
+        loadWatermarkText();
 
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();

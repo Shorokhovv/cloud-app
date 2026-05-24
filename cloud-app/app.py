@@ -145,6 +145,7 @@ def add_watermark(image_path, text="Shorokhovv", opacity=0.5):
 
 # ---------- УПРАВЛЕНИЕ ДОСТУПОМ ----------
 ACCESS_FILE = STORAGE_DIR / 'access.json'
+ABOUT_FILE = BASE_DIR / 'static' / 'aboutPhotograph.json'
 
 def load_access():
     if ACCESS_FILE.exists():
@@ -155,6 +156,16 @@ def load_access():
 def save_access(data):
     with open(ACCESS_FILE, 'w') as f:
         json.dump(data, f, indent=2)
+
+def load_about_photo():
+    if ABOUT_FILE.exists():
+        with open(ABOUT_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {'watermark': 'Shorokhovv'}
+
+def save_about_photo(data):
+    with open(ABOUT_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 # ---------- МАРШРУТЫ ----------
 @app.route('/')
@@ -318,6 +329,7 @@ def delete_file(folder, filename):
 @app.route('/secure-preview/<path:folder>/<path:filename>')
 def secure_preview(folder, filename):
     token = request.args.get('token', '')
+    watermark = request.args.get('watermark', 'true')
     access = load_access()
     folder_found = None
     for f, data in access.items():
@@ -341,8 +353,25 @@ def secure_preview(folder, filename):
     if not file_path.exists():
         return jsonify({'error': 'File not found on disk'}), 404
 
+    # Получаем текст водяного знака из aboutPhotograph.json
+    about = load_about_photo()
+    watermark_text = about.get('watermark', 'Shorokhovv')
+    
+    # Получаем статус включения водяного знака из токена
+    access_data = access[folder_found]
+    watermark_enabled = access_data.get('watermark_enabled', True)
+    
+    # Если водяной знак отключен или выключен по запросу
+    if watermark == 'false' or not watermark_enabled:
+        return send_file(
+            file_path,
+            mimetype='image/jpeg',
+            download_name=file_info.get('original_name', filename),
+            as_attachment=False
+        )
+    
     return send_file(
-        add_watermark(file_path, text="Shorokhovv", opacity=0.5),
+        add_watermark(file_path, text=watermark_text, opacity=0.5),
         mimetype='image/jpeg',
         download_name=file_info.get('original_name', filename),
         as_attachment=False
@@ -380,6 +409,9 @@ def generate_access():
 @app.route('/list-access')
 def list_access():
     access = load_access()
+    about = load_about_photo()
+    watermark_text = about.get('watermark', 'Shorokhovv')
+    
     result = []
     for folder, data in access.items():
         result.append({
@@ -387,7 +419,9 @@ def list_access():
             'token': data.get('token', ''),
             'password': data.get('password', ''),
             'is_blocked': data.get('is_blocked', False),
-            'failed_attempts': data.get('failed_attempts', 0)
+            'failed_attempts': data.get('failed_attempts', 0),
+            'watermark_enabled': data.get('watermark_enabled', True),
+            'watermark_text': watermark_text
         })
     return jsonify(result)
 
@@ -441,6 +475,63 @@ def revoke_access():
         save_access(access)
         return jsonify({'message': 'Access revoked'})
     return jsonify({'error': 'Token not found'}), 404
+
+@app.route('/update-token-settings', methods=['POST'])
+def update_token_settings():
+    token = request.form.get('token')
+    if not token:
+        return jsonify({'error': 'Token required'}), 400
+    
+    access = load_access()
+    folder = None
+    for f, data in access.items():
+        if data.get('token') == token:
+            folder = f
+            break
+    
+    if not folder:
+        return jsonify({'error': 'Token not found'}), 404
+    
+    # Обновляем только статус включения водяного знака
+    if 'watermark_enabled' in request.form:
+        access[folder]['watermark_enabled'] = request.form.get('watermark_enabled') == 'true'
+    
+    save_access(access)
+    return jsonify({'message': 'Settings updated'})
+
+@app.route('/update-watermark-text', methods=['POST'])
+def update_watermark_text():
+    watermark_text = request.form.get('watermark_text', 'Shorokhovv')
+    try:
+        about = load_about_photo()
+        about['watermark'] = watermark_text
+        save_about_photo(about)
+        return jsonify({'message': 'Watermark text updated'})
+    except Exception as e:
+        print(f"Ошибка при сохранении ватермарки: {e}")
+        return jsonify({'error': 'Failed to save watermark'}), 500
+
+@app.route('/reopen-access', methods=['POST'])
+def reopen_access():
+    token = request.form.get('token')
+    if not token:
+        return jsonify({'error': 'Token required'}), 400
+    
+    access = load_access()
+    folder = None
+    for f, data in access.items():
+        if data.get('token') == token:
+            folder = f
+            break
+    
+    if not folder:
+        return jsonify({'error': 'Token not found'}), 404
+    
+    # Разблокируем доступ
+    access[folder]['is_blocked'] = False
+    access[folder]['failed_attempts'] = 0
+    save_access(access)
+    return jsonify({'message': 'Access reopened'})
 
 @app.route('/gallery/<token>')
 def client_gallery(token):
