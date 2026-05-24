@@ -4,10 +4,10 @@ import datetime
 import shutil
 import secrets
 import io
-from flask import Flask, request, jsonify, send_file, render_template
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, send_file, render_template # pyright: ignore[reportMissingImports]
+from werkzeug.utils import secure_filename # pyright: ignore[reportMissingImports]
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont # pyright: ignore[reportMissingImports]
 
 app = Flask(__name__)
 
