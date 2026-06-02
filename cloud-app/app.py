@@ -82,7 +82,7 @@ def allowed_file(filename):
 def is_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
 
-# ---------- ВОДЯНОЙ ЗНАК ----------
+
 def add_watermark(image_path, text="Watermark", opacity=0.5):
     try:
         img = Image.open(image_path).convert("RGBA")
